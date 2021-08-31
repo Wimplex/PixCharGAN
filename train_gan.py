@@ -91,11 +91,10 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             hidden_size,
             fixed_noise=fixed_noise
         )
-        
-        # Save visualization
         imgs_list += epoch_imgs
-        if i % 20 == 0:
-            plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
+
+    # Save visualization
+    plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
 
 
 def main(args):
