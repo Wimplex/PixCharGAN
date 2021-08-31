@@ -20,8 +20,8 @@ FAKE_LABEL = 0
 
 def noise_mix(img_data, p=0.5):
     if np.random.uniform() < p:
-        noise = torch.normal(0.0, 0.001, size=img_data.shape, device=img_data.device)
-        img_data += noise
+        noise = torch.normal(0.0, 0.001, size=img_data.shape, device=img_data.device, requires_grad=False)
+        img_data = img_data + noise
     return img_data
 
 
