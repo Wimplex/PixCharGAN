@@ -10,7 +10,7 @@ class Sprite16x16Dataset(Dataset):
         super(Sprite16x16Dataset, self).__init__()
 
         sprites_paths_template = os.path.join(dataset_root_dir, '16x16', '*', '*.png')
-        self.paths = glob.glob(sprites_paths_template)
+        self.paths = glob.glob(sprites_paths_template) * aug_factor
         self.aug_factor = aug_factor
 
     def __getitem__(self, idx):
