@@ -94,7 +94,7 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
         imgs_list += epoch_imgs
 
     # Save visualization
-    plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
+    plot_anim_fixed_noise(imgs_list, 'PixCharGAN/img/train_res.mp4')
 
 
 def main(args):
@@ -140,5 +140,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = json.load(open('python/params/param_set1.json', 'rb'))
+    args = json.load(open('PixCharGAN/params/param_set1.json', 'rb'))
     main(args)
