@@ -1,13 +1,13 @@
 {
     "data_root": "data/cleaned",
 
-    "num_data_workers": 4,
+    "num_data_workers": 2,
     "num_gpus": 1,
     "seed": 100,
 
     "hidden_size": 128,
     "batch_size": 96,
-    "num_epochs": 250,
+    "num_epochs": 500,
 
     "generator_lr": 3e-4,
     "discriminator_lr": 3e-4,

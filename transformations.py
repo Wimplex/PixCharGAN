@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as T
-from torchvision.transforms.transforms import ColorJitter
+from torchvision.transforms.transforms import ColorJitter, Normalize
 
 
 def center(img, max_size=32):
@@ -13,6 +13,7 @@ def center(img, max_size=32):
 
 forward_transformation = T.Compose([
     T.ToTensor(),
+    T.Normalize(),
     T.Lambda(center)
 ])
 
