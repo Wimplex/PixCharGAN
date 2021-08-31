@@ -19,7 +19,7 @@ FAKE_LABEL = 0
 
 
 def noise_mix(img_data):
-    noise = torch.normal(0.0, 0.001, size=img_data.shape)
+    noise = torch.normal(0.0, 0.001, size=img_data.shape, device=img_data.device)
     img_data += noise
     return noise
 
