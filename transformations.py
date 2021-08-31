@@ -1,5 +1,6 @@
 import torch
 import torchvision.transforms as T
+from torchvision.transforms.transforms import ColorJitter
 
 
 def center(img, max_size=32):
@@ -10,11 +11,15 @@ def center(img, max_size=32):
     return out
 
 
-forward_transformations = T.Compose([
-    T.RandomHorizontalFlip(p=0.3),
-    T.RandomApply(transforms=[T.ColorJitter()], p=0.3),
+forward_transformation = T.Compose([
     T.ToTensor(),
     T.Lambda(center)
+])
+
+augment_transformation = T.Compose([
+    T.RandomHorizontalFlip(p=0.5),
+    T.RandomApply(transforms=[T.ColorJitter()], p=0.5),
+    forward_transformation
 ])
 
 reverse_transformation = T.Compose([

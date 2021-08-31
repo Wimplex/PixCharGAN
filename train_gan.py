@@ -59,7 +59,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         gen_optimizer.step()
 
         # Save samples
-        if fixed_noise is not None and i % 50 == 0:
+        if fixed_noise is not None and i % 20 == 0:
             with torch.no_grad():
                 fake = generator(fixed_noise).detach().cpu()
                 img_grid = vutils.make_grid(fake, padding=2, normalize=True)
@@ -95,7 +95,8 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
         
         # Save visualization
         imgs_list += epoch_imgs
-        plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
+        if i % 20 == 0:
+            plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
 
 
 def main(args):
@@ -108,7 +109,7 @@ def main(args):
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     # Prepare dataloader
-    dataset = Sprite16x16Dataset(args['data_root'], transforms=forward_transformations)
+    dataset = Sprite16x16Dataset(args['data_root'], aug_factor=3)
     data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'])
 
     # Instantiate and setup generator
