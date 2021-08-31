@@ -24,4 +24,4 @@ class Sprite16x16Dataset(Dataset):
         return tensor
 
     def __len__(self):
-        return len(self.paths) * self.aug_factor
+        return len(self.paths)
