@@ -18,6 +18,12 @@ REAL_LABEL = 1
 FAKE_LABEL = 0
 
 
+def noise_mix(img_data):
+    noise = torch.normal(0.0, 0.001, size=img_data.shape)
+    img_data += noise
+    return noise
+
+
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
     train_loader: DataLoader, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
     criterion: nn.Module, device: str, hidden_size: int, fixed_noise: torch.Tensor = None):
@@ -29,6 +35,11 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
         real_cpu = data.to(device)
+
+        # Add noise in random cases
+        if np.random.normal(0.0, 0.01) < 0.0:
+            real_cpu = noise_mix(real_cpu)
+
         batch_size = real_cpu.size(0)
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(real_cpu).view(-1)
@@ -38,6 +49,9 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Discriminator training. The data entirely is fake (accumulate gradients)
         noise = torch.randn(batch_size, hidden_size, 1, 1, device=device)
         fake = generator(noise)
+        if np.random.normal(0.0, 0.01) < 0.0:
+            fake = noise_mix(fake)
+
         label = torch.full([batch_size,], FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake.detach()).view(-1)
         loss_D_fake = criterion(output, label.detach())
