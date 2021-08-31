@@ -105,9 +105,10 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             fixed_noise=fixed_noise
         )
         imgs_list += epoch_imgs
-
-    # Save visualization
-    plot_anim_fixed_noise(imgs_list, 'PixCharGAN/img/train_res.mp4')
+        
+        # Save visualization
+        if i % 50 == 0 or i == num_epochs - 1:
+            plot_anim_fixed_noise(imgs_list, 'PixCharGAN/img/train_res.mp4')
 
 
 def main(args):
