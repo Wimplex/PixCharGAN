@@ -33,9 +33,11 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
 
+        tensor, direction, outline = data
+
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
-        real_cpu = data.to(device)
+        real_cpu = tensor.to(device)
 
         # Add noise in random cases
         real_cpu = noise_mix(real_cpu, p=0.3)
@@ -46,8 +48,11 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
 
-        # Discriminator training. The data entirely is fake (accumulate gradients)
+        # Discriminator training. The data entirely is fake (accumulate gradients).
+        # Replace few values with direction and outline features
         noise = torch.randn(batch_size, hidden_size, 1, 1, device=device)
+        noise[:,0,0,0] = direction
+        noise[:,1,0,0] = outline
         fake = generator(noise)
         fake = noise_mix(fake, p=0.3)
 
@@ -107,8 +112,8 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
         imgs_list += epoch_imgs
         
         # Save visualization
-        if i % 70 == 0 or i == num_epochs - 1:
-            plot_anim_fixed_noise(imgs_list, 'PixCharGAN/img/train_res.mp4')
+        if i % 30 == 0 or i == num_epochs - 1:
+            plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
 
 
 def main(args):
@@ -154,5 +159,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = json.load(open('PixCharGAN/params/param_set1.json', 'rb'))
+    args = json.load(open('python/params/param_set1.json', 'rb'))
     main(args)
