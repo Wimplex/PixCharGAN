@@ -6,7 +6,7 @@
     "seed": 123,
 
     "hidden_size": 128,
-    "batch_size": 128,
+    "batch_size": 64,
     "num_epochs": 500,
 
     "generator_lr": 4e-4,

@@ -1,4 +1,7 @@
+import torch
 import torch.nn as nn
+from torch.utils.data.dataloader import T
+import torch.nn.functional as F
 
 
 def weights_init_dcgan(m):
@@ -11,87 +14,73 @@ def weights_init_dcgan(m):
 
 
 class DCGAN_Generator(nn.Module):
-    def __init__(self, hidden_size=128, output_shape=(3, 16, 16), n_feature_maps=64):
+    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=64, n_classes=4):
         super(DCGAN_Generator, self).__init__()
-        self.ct1 = nn.ConvTranspose2d(hidden_size, n_feature_maps * 8, 4, 1, 1, bias=False)
-        self.bn1 = nn.BatchNorm2d(n_feature_maps * 8)
-        self.relu1 = nn.LeakyReLU(inplace=True)
+        self.output_shape = output_shape
 
-        self.ct2 = nn.ConvTranspose2d(n_feature_maps * 8, n_feature_maps * 4, 4, 2, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(n_feature_maps * 4)
-        self.relu2 = nn.LeakyReLU(inplace=True)
+        # Conditional encoding pipe
+        self.cond_pipe = nn.Sequential(
+            nn.Linear(n_classes, 50),
+            nn.Linear(50, 30 * 2 * 2)
+        )
+        self.fc1 = nn.Linear(hidden_size, 30 * 2 * 2)
 
-        self.ct3 = nn.ConvTranspose2d(n_feature_maps * 4, n_feature_maps * 2, 4, 2, 1, bias=False)
-        self.bn3 = nn.BatchNorm2d(n_feature_maps * 2)
-        self.relu3 = nn.LeakyReLU(inplace=True)
+        # Main pipe layers
+        self.main_pipe = nn.Sequential(
+            nn.ConvTranspose2d(30 * 2, n_feature_maps * 8, 4, 1, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(n_feature_maps * 8, n_feature_maps * 4, 4, 1, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(n_feature_maps * 4, n_feature_maps * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(n_feature_maps * 2, n_feature_maps, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(n_feature_maps, output_shape[2], 4, 2, 1, bias=False),
+            nn.Tanh(),
+        )
 
-        self.ct4 = nn.ConvTranspose2d(n_feature_maps * 2, n_feature_maps, 4, 2, 1, bias=False)
-        self.bn4 = nn.BatchNorm2d(n_feature_maps)
-        self.relu4 = nn.LeakyReLU(inplace=True)
-
-        self.ct5 = nn.ConvTranspose2d(n_feature_maps, output_shape[0], 4, 2, 1, bias=False)
-        self.tanh = nn.Tanh()
-
-    def forward(self, x):
-        x = self.ct1(x)
-        x = self.bn1(x)
-        x = self.relu1(x)
-
-        x = self.ct2(x)
-        x = self.bn2(x)
-        x = self.relu2(x)
-
-        x = self.ct3(x)
-        x = self.bn3(x)
-        x = self.relu3(x)
-
-        x = self.ct4(x)
-        x = self.bn4(x)
-        x = self.relu4(x)
-
-        x = self.ct5(x)
-        out = self.tanh(x)
+    def forward(self, x, label):
+        cond_features = self.cond_pipe(label).reshape([label.shape[0], 30, 2, 2])
+        x = F.leaky_relu(self.fc1(x), 0.2, True)
+        x = torch.cat((x.reshape(x.shape[0], 30, 2, 2), cond_features), 1)
+        out = self.main_pipe(x)
         return out
 
 
 class DCGAN_Discriminator(nn.Module):
-    def __init__(self, input_shape=[16, 16, 3], n_feature_maps=64):
+    def __init__(self, input_shape=[32, 32, 3], n_feature_maps=64, n_classes=4):
         super(DCGAN_Discriminator, self).__init__()
-        self.conv1 = nn.Conv2d(input_shape[2], n_feature_maps, 4, 2, 1, bias=False)
-        self.lrelu1 = nn.LeakyReLU(0.2, inplace=True)
+        self.input_shape = input_shape
 
-        self.conv2 = nn.Conv2d(n_feature_maps, n_feature_maps * 2, 4, 2, 1, bias=False)
-        self.bn1 = nn.BatchNorm2d(n_feature_maps * 2)
-        self.lrelu2 = nn.LeakyReLU(0.2, inplace=True)
+        # Conditional encoding pipe
+        self.cond_pipe = nn.Sequential(
+            nn.Linear(n_classes, 50),
+            nn.Linear(50, input_shape[0] * input_shape[1])
+        )
 
-        self.conv3 = nn.Conv2d(n_feature_maps * 2, n_feature_maps * 4, 4, 2, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(n_feature_maps * 4)
-        self.lrelu3 = nn.LeakyReLU(0.2, inplace=True)
+        # Main layers
+        self.main_pipe = nn.Sequential(
+            nn.Conv2d(input_shape[2] + 1, n_feature_maps, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(n_feature_maps, n_feature_maps * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(n_feature_maps * 2, n_feature_maps * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(n_feature_maps * 4, n_feature_maps * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_feature_maps * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(n_feature_maps * 8, 1, 2, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
 
-        self.conv4 = nn.Conv2d(n_feature_maps * 4, n_feature_maps * 8, 4, 2, 1, bias=False)
-        self.bn3 = nn.BatchNorm2d(n_feature_maps * 8)
-        self.lrelu4 = nn.LeakyReLU(0.2, inplace=True)
-
-        self.conv5 = nn.Conv2d(n_feature_maps * 8, 1, 2, 1, 0, bias=False)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.lrelu1(x)
-
-        x = self.conv2(x)
-        x = self.bn1(x)
-        x = self.lrelu2(x)
-
-        x = self.conv3(x)
-        x = self.bn2(x)
-        x = self.lrelu3(x)
-
-        x = self.conv4(x)
-        x = self.bn3(x)
-        x = self.lrelu4(x)
-
-        x = self.conv5(x)
-        out = self.sigmoid(x)
+    def forward(self, x, label):
+        cond_features = self.cond_pipe(label).reshape([label.shape[0], 1, self.input_shape[0], self.input_shape[1]])
+        x = torch.cat((x, cond_features), 1)
+        out = self.main_pipe(x)
         return out
-

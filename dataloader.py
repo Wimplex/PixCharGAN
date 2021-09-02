@@ -4,12 +4,14 @@ from PIL import Image
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torchvision.transforms.transforms as T
 from torch.utils.data import Dataset
 
 
 # Maps direction presented in string format into radians (scaled from 0 to 3*pi/2)
-DIRECTION_TO_RAD = {'R': 0, 'U': 0.333, 'L': 0.666, 'D': 1.0}
+# DIRECTION_TO_RAD = {'R': 0, 'U': 0.333, 'L': 0.666, 'D': 1.0}
+DIRECTIONS = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
 
 def center(img, max_size=32):
     """ Center small image in a square with <max_size> sides """
@@ -65,10 +67,11 @@ class Sprite16x16Dataset(Dataset):
             img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
             if flipped:
                 direction = 'R' if direction == 'L' else 'L'
-        direction_rad = DIRECTION_TO_RAD[direction]
+
+        direction = DIRECTIONS[direction]
         img = self.forward_transformation(img)
 
-        return img, direction_rad, self.sprite_outlines[idx]
+        return img, direction, self.sprite_outlines[idx]
 
     def __len__(self):
         return len(self.paths)

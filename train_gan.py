@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore')
+
 import random
 import json
 import tqdm
@@ -5,6 +8,7 @@ import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
@@ -27,37 +31,36 @@ def noise_mix(img_data, p=0.5):
 
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
     train_loader: DataLoader, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
-    criterion: nn.Module, device: str, hidden_size: int, fixed_noise: torch.Tensor = None):
+    criterion: nn.Module, device: str, hidden_size: int, fixed_data: dict = None):
     
     imgs_list = []
 
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
 
-        tensor, direction, outline = data
+        tensor_batch, direction_batch, ouline_batch = data
 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
-        real_cpu = tensor.to(device)
+        real_cpu = tensor_batch.to(device)
+        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4).to(device).float()
 
         # Add noise in random cases
         real_cpu = noise_mix(real_cpu, p=0.3)
 
         batch_size = real_cpu.size(0)
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(real_cpu).view(-1)
+        output = discriminator(real_cpu, direction_batch).view(-1)
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
 
         # Discriminator training. The data entirely is fake (accumulate gradients).
         # Replace few values with direction and outline features
-        noise = torch.randn(batch_size, hidden_size, 1, 1, device=device)
-        noise[:,0,0,0] = direction
-        noise[:,1,0,0] = outline
-        fake = generator(noise)
+        noise = torch.randn(batch_size, hidden_size, device=device)
+        fake = generator(noise, direction_batch)
         fake = noise_mix(fake, p=0.3)
 
         label = torch.full([batch_size,], FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(fake.detach()).view(-1)
+        output = discriminator(fake.detach(), direction_batch).view(-1)
         loss_D_fake = criterion(output, label.detach())
         loss_D_fake.backward()
 
@@ -68,7 +71,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Generator training. Accumulate gradients for generator
         generator.zero_grad()
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(fake).view(-1)
+        output = discriminator(fake, direction_batch).view(-1)
         loss_G = criterion(output, label.detach())
         loss_G.backward()
 
@@ -76,9 +79,11 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         gen_optimizer.step()
 
         # Save samples
-        if fixed_noise is not None and i % 20 == 0:
+        if fixed_data is not None and i % 20 == 0:
             with torch.no_grad():
-                fake = generator(fixed_noise).detach().cpu()
+                noise = fixed_data['noise']
+                dimensions = fixed_data['dimensions']
+                fake = generator(noise, dimensions).detach().cpu()
                 img_grid = vutils.make_grid(fake, padding=2, normalize=True)
                 imgs_list.append(img_grid)
     return imgs_list
@@ -93,9 +98,12 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
     generator.train()
     discriminator.train()
 
-    fixed_noise = torch.randn(64, hidden_size, 1, 1, device=device)
-    imgs_list = []
+    # Generate fixed random noise and conditions
+    fixed_noise = torch.randn(64, hidden_size, device=device)
+    fixed_dimensions = F.one_hot(torch.randint(1, 4, size=[64,]), num_classes=4).to(device).float()
+    fixed_data = {'noise': fixed_noise, 'dimensions': fixed_dimensions}
 
+    imgs_list = []
     for i in range(num_epochs):
         print(f"Epoch {i + 1} started.")
         epoch_imgs = train_one_epoch(
@@ -107,12 +115,12 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             criterion,
             device,
             hidden_size,
-            fixed_noise=fixed_noise
+            fixed_data
         )
         imgs_list += epoch_imgs
         
         # Save visualization
-        if i % 30 == 0 or i == num_epochs - 1:
+        if i % 50 == 0 or i == num_epochs - 1:
             plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
 
 
@@ -130,7 +138,7 @@ def main(args):
     data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'])
 
     # Instantiate and setup generator
-    netG = DCGAN_Generator(hidden_size=args['hidden_size'])
+    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128)
     netG.apply(weights_init_dcgan)
 
     # Instantiate and setup discriminator
