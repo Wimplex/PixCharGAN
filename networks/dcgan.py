@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data.dataloader import T
 import torch.nn.functional as F
 
-from networks.modules import Conv2dBlock, ConvTranspose2dBlock
+from networks.modules import Conv2dBlock, ConvTranspose2dBlock, PrintOutputShape
 
 
 def weights_init_dcgan(m):
@@ -17,7 +17,7 @@ def weights_init_dcgan(m):
 
 
 class DCGAN_Generator(nn.Module):
-    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=64, num_classes=4):
+    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=16, num_classes=4):
         super(DCGAN_Generator, self).__init__()
 
         # Shape of output image
@@ -39,9 +39,12 @@ class DCGAN_Generator(nn.Module):
 
         # Main pipe layers
         self.main_pipe = nn.Sequential(
-            ConvTranspose2dBlock(hidden_size + num_classes, n_feature_maps * 8, 4, 2),
-            ConvTranspose2dBlock(n_feature_maps * 8, n_feature_maps * 4, 4, 2),
-            ConvTranspose2dBlock(n_feature_maps * 4, n_feature_maps * 2, 4, 2),
+            ConvTranspose2dBlock(hidden_size + num_classes, n_feature_maps * 8, 3, 1), #
+            ConvTranspose2dBlock(n_feature_maps * 8, n_feature_maps * 8, 4, 2),
+            ConvTranspose2dBlock(n_feature_maps * 8, n_feature_maps * 4, 3, 1), #
+            ConvTranspose2dBlock(n_feature_maps * 4, n_feature_maps * 4, 4, 2),
+            ConvTranspose2dBlock(n_feature_maps * 4, n_feature_maps * 2, 3, 1), #
+            ConvTranspose2dBlock(n_feature_maps * 2, n_feature_maps * 2, 4, 2),
             ConvTranspose2dBlock(n_feature_maps * 2, n_feature_maps, 4, 2),
             ConvTranspose2dBlock(n_feature_maps, output_shape[2], 4, 1, activation='tanh', bn=False)
         )
