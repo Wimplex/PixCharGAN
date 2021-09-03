@@ -9,25 +9,33 @@ import torchvision.transforms.transforms as T
 from torch.utils.data import Dataset
 
 
-# Maps direction presented in string format into radians (scaled from 0 to 3*pi/2)
-# DIRECTION_TO_RAD = {'R': 0, 'U': 0.333, 'L': 0.666, 'D': 1.0}
+# Maps string representation of directions into categorical one
 DIRECTIONS = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
 
-def center(img, max_size=32):
+
+def center(img_data, max_size=32):
     """ Center small image in a square with <max_size> sides """
-    out = torch.zeros(size=[img.shape[0], max_size, max_size], dtype=img.dtype)
-    x_offset = (max_size - img.shape[1]) // 2
-    y_offset = (max_size - img.shape[2]) // 2
-    out[:, x_offset:x_offset + img.shape[1], y_offset:y_offset + img.shape[2]] = img
+    out = torch.zeros(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype)
+    x_offset = (max_size - img_data.shape[1]) // 2
+    y_offset = (max_size - img_data.shape[2]) // 2
+    out[:, x_offset:x_offset + img_data.shape[1], y_offset:y_offset + img_data.shape[2]] = img_data
     return out
 
 
-def horisontal_flip_with_confirmation(img, p=0.5):
+def horisontal_flip_with_confirmation(img_data, p=0.5):
     """ Return randomly horizontal flipped image and a flip confirmation flag """
     if np.random.uniform() < p:
-        return T.RandomHorizontalFlip(p=1.0)(img), True
+        return T.RandomHorizontalFlip(p=1.0)(img_data), True
     else:
-        return img, False
+        return img_data, False
+
+
+def noise_mix(img_data, std=0.001, p=0.5):
+    """ Randomly add normal noise to image """
+    if np.random.uniform() < p:
+        noise = torch.normal(0.0, std, size=img_data.shape, device=img_data.device, requires_grad=False)
+        img_data = img_data + noise
+    return img_data
 
 
 class Sprite16x16Dataset(Dataset):
@@ -67,9 +75,10 @@ class Sprite16x16Dataset(Dataset):
             img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
             if flipped:
                 direction = 'R' if direction == 'L' else 'L'
-
         direction = DIRECTIONS[direction]
+
         img = self.forward_transformation(img)
+        img = noise_mix(img, std=0.001, p=0.2)
 
         return img, direction, self.sprite_outlines[idx]
 

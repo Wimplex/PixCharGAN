@@ -13,20 +13,13 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
 
-from dataloader import Sprite16x16Dataset
+from dataloader import Sprite16x16Dataset, noise_mix
 from networks.dcgan import DCGAN_Generator, DCGAN_Discriminator, weights_init_dcgan
 from plotting import plot_anim_fixed_noise
 
 
 REAL_LABEL = 1
 FAKE_LABEL = 0
-
-
-def noise_mix(img_data, p=0.5):
-    if np.random.uniform() < p:
-        noise = torch.normal(0.0, 0.001, size=img_data.shape, device=img_data.device, requires_grad=False)
-        img_data = img_data + noise
-    return img_data
 
 
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
@@ -38,18 +31,14 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
 
         tensor_batch, direction_batch, ouline_batch = data
+        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4).to(device).float()
 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
-        real_cpu = tensor_batch.to(device)
-        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4).to(device).float()
-
-        # Add noise in random cases
-        real_cpu = noise_mix(real_cpu, p=0.3)
-
-        batch_size = real_cpu.size(0)
+        real = tensor_batch.to(device)
+        batch_size = real.size(0)
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(real_cpu, direction_batch).view(-1)
+        output = discriminator(real, direction_batch).view(-1)
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
 
@@ -57,7 +46,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Replace few values with direction and outline features
         noise = torch.randn(batch_size, hidden_size, device=device)
         fake = generator(noise, direction_batch)
-        fake = noise_mix(fake, p=0.3)
+        fake = noise_mix(fake, p=0.2)
 
         label = torch.full([batch_size,], FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake.detach(), direction_batch).view(-1)
@@ -90,7 +79,7 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
 
     # Generate fixed random noise and conditions
     fixed_noise = torch.randn(64, hidden_size, device=device)
-    fixed_dimensions = F.one_hot(torch.randint(1, 4, size=[64,]), num_classes=4).to(device).float()
+    fixed_dimensions = F.one_hot(torch.randint(0, 4, size=[64,]), num_classes=4).to(device).float()
     fixed_data = {'noise': fixed_noise, 'dimensions': fixed_dimensions}
 
     imgs_list = []
