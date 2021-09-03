@@ -8,14 +8,17 @@ import torch.nn.functional as F
 import torchvision.transforms.transforms as T
 from torch.utils.data import Dataset
 
+from utils import int_to_grayscale_hex
+
 
 # Maps string representation of directions into categorical one
 DIRECTIONS = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
+BACKGROUND_COLOR = 150
 
 
 def center(img_data, max_size=32):
     """ Center small image in a square with <max_size> sides """
-    out = torch.zeros(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype)
+    out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
     x_offset = (max_size - img_data.shape[1]) // 2
     y_offset = (max_size - img_data.shape[2]) // 2
     out[:, x_offset:x_offset + img_data.shape[1], y_offset:y_offset + img_data.shape[2]] = img_data
@@ -36,6 +39,13 @@ def noise_mix(img_data, std=0.001, p=0.5):
         noise = torch.normal(0.0, std, size=img_data.shape, device=img_data.device, requires_grad=False)
         img_data = img_data + noise
     return img_data
+
+
+def read_image(img_path):
+    img = Image.open(img_path).convert('RGBA')
+    new_img = Image.new('RGBA', img.size, int_to_grayscale_hex(BACKGROUND_COLOR))
+    new_img.paste(img, (0, 0), mask=img)
+    return new_img.convert('RGB')
 
 
 class Sprite16x16Dataset(Dataset):
@@ -66,7 +76,8 @@ class Sprite16x16Dataset(Dataset):
 
         # Read data
         curr_img_path = self.paths[idx]
-        img = Image.open(curr_img_path).convert('RGB')
+        img = read_image(curr_img_path)
+        
         direction = self.sprite_directions[idx]
 
         # Apply transformations and augmentations
