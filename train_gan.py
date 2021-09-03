@@ -78,16 +78,6 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Update generator
         gen_optimizer.step()
 
-        # Save samples
-        if fixed_data is not None and i % 20 == 0:
-            with torch.no_grad():
-                noise = fixed_data['noise']
-                dimensions = fixed_data['dimensions']
-                fake = generator(noise, dimensions).detach().cpu()
-                img_grid = vutils.make_grid(fake, padding=2, normalize=True)
-                imgs_list.append(img_grid)
-    return imgs_list
-
 
 def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoader, \
     num_epochs: int, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
@@ -106,7 +96,7 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
     imgs_list = []
     for i in range(num_epochs):
         print(f"Epoch {i + 1} started.")
-        epoch_imgs = train_one_epoch(
+        train_one_epoch(
             generator,
             discriminator,
             train_loader,
@@ -117,11 +107,15 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             hidden_size,
             fixed_data
         )
-        imgs_list += epoch_imgs
         
-        # Save visualization
-        if i % 50 == 0 or i == num_epochs - 1:
-            plot_anim_fixed_noise(imgs_list, 'python/img/train_res.mp4')
+        # Plot and save visualization
+        with torch.no_grad():
+            noise = fixed_data['noise']
+            dimensions = fixed_data['dimensions']
+            fake = generator(noise, dimensions).detach().cpu()
+            img_grid = vutils.make_grid(fake, padding=2, normalize=True)
+            imgs_list.append(img_grid)
+        plot_anim_fixed_noise(imgs_list, f'python/img/{i+1}.png')            
 
 
 def main(args):

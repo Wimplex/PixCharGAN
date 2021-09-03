@@ -3,13 +3,13 @@
 
     "num_data_workers": 2,
     "num_gpus": 1,
-    "seed": 123,
+    "seed": 42,
 
     "hidden_size": 128,
-    "batch_size": 64,
+    "batch_size": 96,
     "num_epochs": 500,
 
-    "generator_lr": 4e-4,
+    "generator_lr": 1e-4,
     "discriminator_lr": 3e-4,
     "beta1": 0.5
 }
