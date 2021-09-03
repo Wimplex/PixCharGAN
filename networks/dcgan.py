@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data.dataloader import T
@@ -14,30 +15,38 @@ def weights_init_dcgan(m):
 
 
 class PrintOutputShape(nn.Module):
-    def __init__(self):
+    def __init__(self, prefix=''):
         super(PrintOutputShape, self).__init__()
+        self.prefix = prefix
 
     def forward(self, x):
-        print(x.shape)
+        print(self.prefix, x.shape)
         return x
 
 
 class DCGAN_Generator(nn.Module):
-    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=64, n_classes=4):
+    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=64, num_classes=4):
         super(DCGAN_Generator, self).__init__()
+
+        # Shape of output image
         self.output_shape = output_shape
+
+        # Size of main embedding Z
         self.hidden_size = hidden_size
+
+        # Shape of feature maps, reshaped from embedding Z
+        self.hidden_shape = 2
 
         # Conditional encoding pipe
         self.cond_pipe = nn.Sequential(
-            nn.Linear(n_classes, 50),
-            nn.Linear(50, hidden_size)
+            nn.Embedding(num_classes, 50),
+            nn.Linear(50, self.hidden_shape ** 2)
         )
-        # self.fc1 = nn.Linear(hidden_size, 30 * 4 * 4)
+        self.fc1 = nn.Linear(hidden_size, 128 * self.hidden_shape ** 2)
 
         # Main pipe layers
         self.main_pipe = nn.Sequential(
-            nn.ConvTranspose2d(hidden_size * 2, n_feature_maps * 8, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(hidden_size + num_classes, n_feature_maps * 8, 4, 2, 1, bias=False),
             #PrintOutputShape(),
             nn.BatchNorm2d(n_feature_maps * 8),
             nn.LeakyReLU(0.2, inplace=True),
@@ -53,16 +62,24 @@ class DCGAN_Generator(nn.Module):
             #PrintOutputShape(),
             nn.BatchNorm2d(n_feature_maps),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(n_feature_maps, output_shape[2], 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(n_feature_maps, output_shape[2], 4, 1, 1, bias=False),
             #PrintOutputShape(),
             nn.Tanh(),
         )
 
     def forward(self, x, label):
+
+        # Extract conditional embedding
         cond_features = self.cond_pipe(label)
-        # x = F.leaky_relu(self.fc1(x), 0.2, True)
+        cond_features = torch.reshape(
+            cond_features, 
+            [x.shape[0], cond_features.shape[1], self.hidden_shape, self.hidden_shape]
+        )
+
+        # Apply to main embedding Z
+        x = F.leaky_relu(self.fc1(x))
+        x = torch.reshape(x, [x.shape[0], self.hidden_size, self.hidden_shape, self.hidden_shape])
         x = F.leaky_relu(torch.cat((x, cond_features), 1), 0.2, True)
-        x = x.reshape(list(x.shape) + [1, 1])
         out = self.main_pipe(x)
         return out
 

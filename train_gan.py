@@ -31,7 +31,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
 
         tensor_batch, direction_batch, ouline_batch = data
-        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4).to(device).float()
+        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4)
 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
@@ -79,7 +79,7 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
 
     # Generate fixed random noise and conditions
     fixed_noise = torch.randn(64, hidden_size, device=device)
-    fixed_dimensions = F.one_hot(torch.randint(0, 4, size=[64,]), num_classes=4).to(device).float()
+    fixed_dimensions = F.one_hot(torch.randint(0, 4, size=[64,]), num_classes=4).to(device)
     fixed_data = {'noise': fixed_noise, 'dimensions': fixed_dimensions}
 
     imgs_list = []
@@ -115,6 +115,7 @@ def main(args):
 
     # Setup params
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    print("Train on device:", device)
 
     # Prepare dataloader
     dataset = Sprite16x16Dataset(args['data_root'], aug_factor=3)
