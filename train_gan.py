@@ -38,7 +38,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         real = tensor_batch.to(device)
         batch_size = real.size(0)
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(real, direction_batch).view(-1)
+        output = discriminator(real).view(-1)
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
 
@@ -49,7 +49,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         fake = noise_mix(fake, p=0.2)
 
         label = torch.full([batch_size,], FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(fake.detach(), direction_batch).view(-1)
+        output = discriminator(fake.detach()).view(-1)
         loss_D_fake = criterion(output, label.detach())
         loss_D_fake.backward()
 
@@ -60,7 +60,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Generator training. Accumulate gradients for generator
         generator.zero_grad()
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(fake, direction_batch).view(-1)
+        output = discriminator(fake).view(-1)
         loss_G = criterion(output, label.detach())
         loss_G.backward()
 

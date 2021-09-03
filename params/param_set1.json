@@ -3,10 +3,10 @@
 
     "num_data_workers": 2,
     "num_gpus": 1,
-    "seed": 42,
+    "seed": 451,
 
     "hidden_size": 128,
-    "batch_size": 96,
+    "batch_size": 128,
     "num_epochs": 500,
 
     "generator_lr": 1e-4,
