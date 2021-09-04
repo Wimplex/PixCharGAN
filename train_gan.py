@@ -1,9 +1,11 @@
 import warnings
 warnings.filterwarnings('ignore')
 
+import os
 import random
 import json
 import tqdm
+import datetime
 
 import numpy as np
 import torch
@@ -16,18 +18,15 @@ from torch.utils.data import DataLoader
 from dataloader import Sprite16x16Dataset, noise_mix
 from networks.dcgan import DCGAN_Generator, DCGAN_Discriminator, weights_init_dcgan
 from plotting import plot_anim_fixed_noise
+from utils import save_checkpoint
+from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR
 
-
-REAL_LABEL = 1
-FAKE_LABEL = 0
 
 
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
     train_loader: DataLoader, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
     criterion: nn.Module, device: str, hidden_size: int, fixed_data: dict = None):
     
-    imgs_list = []
-
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
 
         tensor_batch, direction_batch, ouline_batch = data
@@ -82,6 +81,8 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
     fixed_dimensions = F.one_hot(torch.randint(0, 4, size=[64,]), num_classes=4).to(device)
     fixed_data = {'noise': fixed_noise, 'dimensions': fixed_dimensions}
 
+    curr_time = datetime.datetime.now()
+    checkpoints_dir = os.path.join(PROJECT_DIR, 'checkpoints', curr_time)
     imgs_list = []
     for i in range(num_epochs):
         print(f"Epoch {i + 1} started.")
@@ -105,6 +106,10 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             img_grid = vutils.make_grid(fake, padding=2, normalize=True)
             imgs_list.append(img_grid)
         plot_anim_fixed_noise(imgs_list, f'python/img/{i+1}.png')            
+
+        # Save checkpoint
+        save_checkpoint(discriminator, generator, disc_optimizer, gen_optimizer, 
+            save_path=os.path.join(checkpoints_dir, f'ep_{i+1}.pth'))
 
 
 def main(args):
@@ -151,5 +156,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = json.load(open('python/params/param_set1.json', 'rb'))
+    args = json.load(open(os.path.join(PROJECT_DIR, 'params/param_set1.json'), 'rb'))
     main(args)
