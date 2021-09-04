@@ -14,22 +14,26 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from dataloader import Sprite16x16Dataset, noise_mix
 from networks.dcgan import DCGAN_Generator, DCGAN_Discriminator, weights_init_dcgan
 from plotting import plot_anim_fixed_noise
 from utils import save_checkpoint
-from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR
+from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR, CHECKPOINTS_DIR
 
+
+# Instantiate summary writer accessible for every function in a script
+train_writer = SummaryWriter()
 
 
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
     train_loader: DataLoader, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
-    criterion: nn.Module, device: str, hidden_size: int, fixed_data: dict = None):
+    criterion: nn.Module, device: str, hidden_size: int, current_epoch: int, fixed_data: dict = None):
     
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
-
-        tensor_batch, direction_batch, ouline_batch = data
+        curr_iter = current_epoch * len(train_loader) + i
+        tensor_batch, direction_batch, outline_batch = data
         direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4)
 
         # Discriminator training. The data entirely is real (accumulate gradients)
@@ -66,6 +70,12 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Update generator
         gen_optimizer.step()
 
+        # Log losses
+        train_writer.add_scalars('pix_gan_losses', {
+            'gen_loss': loss_G,
+            'disc_loss': loss_D
+        }, curr_iter)
+
 
 def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoader, \
     num_epochs: int, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
@@ -81,21 +91,25 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
     fixed_dimensions = F.one_hot(torch.randint(0, 4, size=[64,]), num_classes=4).to(device)
     fixed_data = {'noise': fixed_noise, 'dimensions': fixed_dimensions}
 
-    curr_time = datetime.datetime.now()
-    checkpoints_dir = os.path.join(PROJECT_DIR, 'checkpoints', curr_time)
+    # Setup checkpoints dir
+    curr_time = datetime.datetime.now().strftime('%m-%d_%H-%M')
+    checkpoints_dir = os.path.join(CHECKPOINTS_DIR, curr_time)
+    os.makedirs(checkpoints_dir)
+
     imgs_list = []
     for i in range(num_epochs):
         print(f"Epoch {i + 1} started.")
         train_one_epoch(
-            generator,
-            discriminator,
-            train_loader,
-            gen_optimizer,
-            disc_optimizer,
-            criterion,
-            device,
-            hidden_size,
-            fixed_data
+            generator=generator,
+            discriminator=discriminator,
+            train_loader=train_loader,
+            gen_optimizer=gen_optimizer,
+            disc_optimizer=disc_optimizer,
+            criterion=criterion,
+            device=device,
+            hidden_size=hidden_size,
+            fixed_data=fixed_data,
+            current_epoch=i
         )
         
         # Plot and save visualization
