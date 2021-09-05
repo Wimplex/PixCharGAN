@@ -57,7 +57,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         loss_D_fake.backward()
 
         # Update discriminator
-        loss_D = loss_D_real + loss_D_fake
+        loss_D = loss_D_real.item() + loss_D_fake.item()
         disc_optimizer.step()
 
         # Generator training. Accumulate gradients for generator
@@ -72,8 +72,8 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
         # Log losses
         train_writer.add_scalars('pix_gan_losses', {
-            'gen_loss': loss_G,
-            'disc_loss': loss_D
+            'gen_loss': loss_G.item(),
+            'disc_loss': loss_D.item()
         }, curr_iter)
 
 
@@ -147,11 +147,11 @@ def main(args):
     netG.apply(weights_init_dcgan)
 
     # Instantiate and setup discriminator
-    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE)
+    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=128)
     netD.apply(weights_init_dcgan)
 
     # Loss
-    loss = nn.BCELoss()
+    loss = nn.BCELoss().to(device)
 
     # Optimizers
     optG = optim.Adam(netG.parameters(), lr=args['generator_lr'], betas=[args['beta1'], 0.999])
