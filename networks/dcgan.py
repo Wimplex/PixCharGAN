@@ -9,7 +9,6 @@ from networks.modules import Conv2dBlock, ConvTranspose2dBlock
 def weights_init_dcgan(m):
     classname = m.__class__.__name__
     if classname == 'Conv2d' or classname == 'ConvTranspose2d':
-        # nn.init.normal_(m.weight.data, 0.0, 0.02)
         nn.init.xavier_normal_(m.weight.data)
     elif classname.find('BatchNorm') != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
@@ -34,7 +33,7 @@ class DCGAN_Generator(nn.Module):
             nn.Embedding(num_classes, 50),
             nn.Linear(50, self.hidden_shape ** 2)
         )
-        self.fc1 = nn.Linear(hidden_size, 128 * self.hidden_shape ** 2)
+        self.fc1 = nn.Linear(hidden_size, hidden_size * self.hidden_shape ** 2)
         self.lrelu = nn.LeakyReLU(0.2, True)
 
         # Main pipe layers

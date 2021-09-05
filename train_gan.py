@@ -20,7 +20,7 @@ from dataloader import Sprite16x16Dataset, noise_mix
 from networks.dcgan import DCGAN_Generator, DCGAN_Discriminator, weights_init_dcgan
 from plotting import plot_anim_fixed_noise
 from utils import save_checkpoint
-from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR, CHECKPOINTS_DIR
+from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR, CHECKPOINTS_DIR, IMAGE_SHAPE
 
 
 # Instantiate summary writer accessible for every function in a script
@@ -122,8 +122,9 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
         plot_anim_fixed_noise(imgs_list, f'python/img/{i+1}.png')            
 
         # Save checkpoint
-        save_checkpoint(discriminator, generator, disc_optimizer, gen_optimizer, 
-            save_path=os.path.join(checkpoints_dir, f'ep_{i+1}.pth'))
+        if i % 3 == 0:
+            save_checkpoint(discriminator, generator, disc_optimizer, gen_optimizer, 
+                save_path=os.path.join(checkpoints_dir, f'ep_{i+1}.pth'))
 
 
 def main(args):
@@ -134,18 +135,19 @@ def main(args):
 
     # Setup params
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    torch.backends.cudnn.benchmark = True
     print("Train on device:", device)
 
     # Prepare dataloader
-    dataset = Sprite16x16Dataset(args['data_root'], aug_factor=3)
-    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'])
+    dataset = Sprite16x16Dataset(args['data_root'], aug_factor=1)
+    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
 
     # Instantiate and setup generator
-    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128)
+    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128, output_shape=IMAGE_SHAPE)
     netG.apply(weights_init_dcgan)
 
     # Instantiate and setup discriminator
-    netD = DCGAN_Discriminator()
+    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE)
     netD.apply(weights_init_dcgan)
 
     # Loss

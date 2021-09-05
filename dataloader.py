@@ -9,6 +9,7 @@ import torchvision.transforms.transforms as T
 from torch.utils.data import Dataset
 
 from utils import int_to_grayscale_hex
+from config import IMAGE_SHAPE
 
 
 # Maps string representation of directions into categorical one
@@ -16,7 +17,7 @@ DIRECTIONS = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
 BACKGROUND_COLOR = 150
 
 
-def center(img_data, max_size=32):
+def center(img_data, max_size=IMAGE_SHAPE[0]):
     """ Center small image in a square with <max_size> sides """
     out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
     x_offset = (max_size - img_data.shape[1]) // 2
@@ -27,10 +28,8 @@ def center(img_data, max_size=32):
 
 def horisontal_flip_with_confirmation(img_data, p=0.5):
     """ Return randomly horizontal flipped image and a flip confirmation flag """
-    if np.random.uniform() < p:
-        return T.RandomHorizontalFlip(p=1.0)(img_data), True
-    else:
-        return img_data, False
+    if np.random.uniform() < p: return T.RandomHorizontalFlip(p=1.0)(img_data), True
+    else: return img_data, False
 
 
 def noise_mix(img_data, std=0.001, p=0.5):
@@ -81,15 +80,13 @@ class Sprite16x16Dataset(Dataset):
         direction = self.sprite_directions[idx]
 
         # Apply transformations and augmentations
-        if idx % self.aug_factor != 0:
-            img = T.ColorJitter()(img)
-            img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
-            if flipped:
-                direction = 'R' if direction == 'L' else 'L'
+        # if idx % self.aug_factor != 0:
+        img = T.ColorJitter()(img)
+        img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
+        if flipped: direction = 'R' if direction == 'L' else 'L'
         direction = DIRECTIONS[direction]
-
         img = self.forward_transformation(img)
-        img = noise_mix(img, std=0.001, p=0.2)
+        img = noise_mix(img, std=0.001, p=0.1)
 
         return img, direction, self.sprite_outlines[idx]
 
