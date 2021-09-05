@@ -19,7 +19,8 @@ BACKGROUND_COLOR = 150
 
 def center(img_data, max_size=IMAGE_SHAPE[0]):
     """ Center small image in a square with <max_size> sides """
-    out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
+    # out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
+    out = torch.zeros(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype)
     x_offset = (max_size - img_data.shape[1]) // 2
     y_offset = (max_size - img_data.shape[2]) // 2
     out[:, x_offset:x_offset + img_data.shape[1], y_offset:y_offset + img_data.shape[2]] = img_data
@@ -42,9 +43,10 @@ def noise_mix(img_data, std=0.001, p=0.5):
 
 def read_image(img_path):
     img = Image.open(img_path).convert('RGBA')
-    new_img = Image.new('RGBA', img.size, int_to_grayscale_hex(BACKGROUND_COLOR))
-    new_img.paste(img, (0, 0), mask=img)
-    return new_img.convert('RGB')
+    #new_img = Image.new('RGBA', img.size, int_to_grayscale_hex(BACKGROUND_COLOR))
+    #new_img.paste(img, (0, 0), mask=img)
+    #return new_img.convert('RGB')
+    return img
 
 
 class Sprite16x16Dataset(Dataset):
@@ -62,7 +64,13 @@ class Sprite16x16Dataset(Dataset):
         self.forward_transformation = T.Compose([
             T.ToTensor(),
             T.Lambda(center),
-            T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            T.Normalize((0.485, 0.456, 0.406, 0.0), (0.229, 0.224, 0.225, 1.0))
+        ])
+
+        self.aug_transformation = T.Compose([
+            T.ColorJitter(),
+            # T.RandomHorizontalFlip(p),
+            T.Lambda(lambda x: noise_mix(x, p=0.1)),
         ])
 
     def __prepare_meta_features(self):
@@ -78,16 +86,20 @@ class Sprite16x16Dataset(Dataset):
         img = read_image(curr_img_path)
         
         direction = self.sprite_directions[idx]
+        img = self.aug_transformation(img)
+        img = self.forward_transformation(img)
 
         # Apply transformations and augmentations
         # if idx % self.aug_factor != 0:
-        img = T.ColorJitter()(img)
-        img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
-        if flipped: direction = 'R' if direction == 'L' else 'L'
+        # img = T.ColorJitter()(img)
+        # img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
+        # if flipped: direction = 'R' if direction == 'L' else 'L'
         direction = DIRECTIONS[direction]
-        img = self.forward_transformation(img)
-        img = noise_mix(img, std=0.001, p=0.1)
+        # img = self.forward_transformation(img)
+        # img = noise_mix(img, std=0.001, p=0.1)
 
+        print(img.shape)
+        exit()
         return img, direction, self.sprite_outlines[idx]
 
     def __len__(self):
