@@ -98,8 +98,6 @@ class Sprite16x16Dataset(Dataset):
         # img = self.forward_transformation(img)
         # img = noise_mix(img, std=0.001, p=0.1)
 
-        print(img.shape)
-        exit()
         return img, direction, self.sprite_outlines[idx]
 
     def __len__(self):

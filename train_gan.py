@@ -144,11 +144,11 @@ def main(args):
     data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True)
 
     # Instantiate and setup generator
-    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=256, output_shape=IMAGE_SHAPE)
+    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128, output_shape=IMAGE_SHAPE)
     netG.apply(weights_init_dcgan)
 
     # Instantiate and setup discriminator
-    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=256)
+    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=128)
     netD.apply(weights_init_dcgan)
 
     # Loss
