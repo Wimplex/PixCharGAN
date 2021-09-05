@@ -64,7 +64,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         generator.zero_grad()
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake).view(-1)
-        loss_G = criterion(output, label.detach())
+        loss_G = criterion(output, label.detach()).item()
         loss_G.backward()
 
         # Update generator
@@ -72,8 +72,8 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
         # Log losses
         train_writer.add_scalars('pix_gan_losses', {
-            'gen_loss': loss_G.item(),
-            'disc_loss': loss_D.item()
+            'gen_loss': loss_G,
+            'disc_loss': loss_D
         }, curr_iter)
 
 
@@ -140,14 +140,15 @@ def main(args):
 
     # Prepare dataloader
     dataset = Sprite16x16Dataset(args['data_root'], aug_factor=1)
-    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
+    # data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
+    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True)
 
     # Instantiate and setup generator
-    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128, output_shape=IMAGE_SHAPE)
+    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=256, output_shape=IMAGE_SHAPE)
     netG.apply(weights_init_dcgan)
 
     # Instantiate and setup discriminator
-    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=128)
+    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=256)
     netD.apply(weights_init_dcgan)
 
     # Loss
