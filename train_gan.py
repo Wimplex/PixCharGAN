@@ -64,7 +64,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         generator.zero_grad()
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake).view(-1)
-        loss_G = criterion(output, label.detach()).item()
+        loss_G = criterion(output, label.detach())
         loss_G.backward()
 
         # Update generator
@@ -72,7 +72,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
         # Log losses
         train_writer.add_scalars('pix_gan_losses', {
-            'gen_loss': loss_G,
+            'gen_loss': loss_G.item(),
             'disc_loss': loss_D
         }, curr_iter)
 
