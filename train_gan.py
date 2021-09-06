@@ -122,7 +122,8 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
         plot_anim_fixed_noise(imgs_list, f'python/img/{i+1}.png')            
 
         # Save checkpoint
-        if i % 3 == 0:
+        # if i % 30 == 0:
+        if False:
             save_checkpoint(discriminator, generator, disc_optimizer, gen_optimizer, 
                 save_path=os.path.join(checkpoints_dir, f'ep_{i+1}.pth'))
 

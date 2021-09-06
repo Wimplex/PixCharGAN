@@ -21,6 +21,7 @@ def center(img_data, max_size=IMAGE_SHAPE[0]):
     """ Center small image in a square with <max_size> sides """
     # out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
     out = torch.zeros(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype)
+    out[:3,:,:] = BACKGROUND_COLOR / 255
     x_offset = (max_size - img_data.shape[1]) // 2
     y_offset = (max_size - img_data.shape[2]) // 2
     out[:, x_offset:x_offset + img_data.shape[1], y_offset:y_offset + img_data.shape[2]] = img_data
@@ -68,7 +69,7 @@ class Sprite16x16Dataset(Dataset):
         ])
 
         self.aug_transformation = T.Compose([
-            T.ColorJitter(),
+            # T.ColorJitter(),
             # T.RandomHorizontalFlip(p),
             T.Lambda(lambda x: noise_mix(x, p=0.1)),
         ])
@@ -86,8 +87,8 @@ class Sprite16x16Dataset(Dataset):
         img = read_image(curr_img_path)
         
         direction = self.sprite_directions[idx]
-        img = self.aug_transformation(img)
         img = self.forward_transformation(img)
+        img = self.aug_transformation(img)
 
         # Apply transformations and augmentations
         # if idx % self.aug_factor != 0:
