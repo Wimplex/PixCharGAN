@@ -29,9 +29,6 @@ class Config:
     BETA1 = 0.5
     SAVE_CHECKPOINT_EVERY = 30 # <-- could be None if it is not needed to save checkpoints
 
-    def __init__(self):
-        pass
-
     def save_confg(self, save_path: str):
         json.dump(self.__dict__(), open(save_path, 'w'), indent='\t')
     
