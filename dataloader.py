@@ -69,8 +69,7 @@ class Sprite16x16Dataset(Dataset):
         ])
 
         self.aug_transformation = T.Compose([
-            # T.ColorJitter(),
-            # T.RandomHorizontalFlip(p),
+            T.ColorJitter(),
             T.Lambda(lambda x: noise_mix(x, p=0.1)),
         ])
 
@@ -81,23 +80,19 @@ class Sprite16x16Dataset(Dataset):
             self.sprite_outlines.append(int(meta_comp[3]))
 
     def __getitem__(self, idx):
-
         # Read data
         curr_img_path = self.paths[idx]
         img = read_image(curr_img_path)
         
+        # Apply transformations
         direction = self.sprite_directions[idx]
         img = self.forward_transformation(img)
-        img = self.aug_transformation(img)
-
-        # Apply transformations and augmentations
         # if idx % self.aug_factor != 0:
-        # img = T.ColorJitter()(img)
-        # img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
-        # if flipped: direction = 'R' if direction == 'L' else 'L'
+        img = self.aug_transformation(img)
+        img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
+        if flipped: direction = 'R' if direction == 'L' else 'L'
         direction = DIRECTIONS[direction]
-        # img = self.forward_transformation(img)
-        # img = noise_mix(img, std=0.001, p=0.1)
+        direction = F.one_hot(torch.tensor(direction), num_classes=4)
 
         return img, direction, self.sprite_outlines[idx]
 

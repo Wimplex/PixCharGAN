@@ -34,14 +34,14 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
         curr_iter = current_epoch * len(train_loader) + i
         tensor_batch, direction_batch, outline_batch = data
-        direction_batch = F.one_hot(torch.tensor(direction_batch, device=device), num_classes=4)
+        real_batch = tensor_batch.to(device)
+        direction_batch = direction_batch.to(device)
 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
-        real = tensor_batch.to(device)
-        batch_size = real.size(0)
+        batch_size = real_batch.size(0)
         label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
-        output = discriminator(real).view(-1)
+        output = discriminator(real_batch).view(-1)
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
 
@@ -57,7 +57,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         loss_D_fake.backward()
 
         # Update discriminator
-        loss_D = loss_D_real.item() + loss_D_fake.item()
+        loss_D = loss_D_real.detach().item() + loss_D_fake.detach().item()
         disc_optimizer.step()
 
         # Generator training. Accumulate gradients for generator
@@ -72,7 +72,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
         # Log losses
         train_writer.add_scalars('pix_gan_losses', {
-            'gen_loss': loss_G.item(),
+            'gen_loss': loss_G.detach().item(),
             'disc_loss': loss_D
         }, curr_iter)
 
@@ -142,7 +142,8 @@ def main(args):
     # Prepare dataloader
     dataset = Sprite16x16Dataset(args['data_root'], aug_factor=1)
     # data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
-    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True)
+    # data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True)
+    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=False)
 
     # Instantiate and setup generator
     netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128, output_shape=IMAGE_SHAPE)
