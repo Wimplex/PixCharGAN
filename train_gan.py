@@ -125,7 +125,13 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             config.save_confg(os.path.join(checkpoints_dir, 'params.json'))
 
 
-def main():
+def main(new_config=None):
+
+    # Replace config
+    if new_config is not None:
+        global config
+        config = new_config
+
     # Setup randomness
     random.seed(config.SEED)
     np.random.seed(config.SEED)
