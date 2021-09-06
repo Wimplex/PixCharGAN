@@ -3,7 +3,6 @@ warnings.filterwarnings('ignore')
 
 import os
 import random
-import json
 import tqdm
 import datetime
 
@@ -18,18 +17,19 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataloader import Sprite16x16Dataset, noise_mix
 from networks.dcgan import DCGAN_Generator, DCGAN_Discriminator, weights_init_dcgan
-from plotting import plot_anim_fixed_noise
+from plotting import draw_img
 from utils import save_checkpoint
-from config import REAL_LABEL, FAKE_LABEL, PROJECT_DIR, CHECKPOINTS_DIR, IMAGE_SHAPE
+from config import Config
 
 
-# Instantiate summary writer accessible for every function in a script
+# Instantiate globals
 train_writer = SummaryWriter()
+config = Config()
 
 
 def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, \
     train_loader: DataLoader, gen_optimizer: optim.Optimizer, disc_optimizer: optim.Optimizer, \
-    criterion: nn.Module, device: str, hidden_size: int, current_epoch: int, fixed_data: dict = None):
+    criterion: nn.Module, device: str, hidden_size: int, current_epoch: int):
     
     for i, data in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
         curr_iter = current_epoch * len(train_loader) + i
@@ -40,7 +40,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         # Discriminator training. The data entirely is real (accumulate gradients)
         discriminator.zero_grad()
         batch_size = real_batch.size(0)
-        label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
+        label = torch.full([batch_size,], config.REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(real_batch).view(-1)
         loss_D_real = criterion(output, label.detach())
         loss_D_real.backward()
@@ -51,7 +51,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
         fake = generator(noise, direction_batch)
         fake = noise_mix(fake, p=0.2)
 
-        label = torch.full([batch_size,], FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
+        label = torch.full([batch_size,], config.FAKE_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake.detach()).view(-1)
         loss_D_fake = criterion(output, label.detach())
         loss_D_fake.backward()
@@ -62,7 +62,7 @@ def train_one_epoch(generator: torch.nn.Module, discriminator: torch.nn.Module, 
 
         # Generator training. Accumulate gradients for generator
         generator.zero_grad()
-        label = torch.full([batch_size,], REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
+        label = torch.full([batch_size,], config.REAL_LABEL, dtype=torch.float, device=device, requires_grad=True)
         output = discriminator(fake).view(-1)
         loss_G = criterion(output, label.detach())
         loss_G.backward()
@@ -93,10 +93,9 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
 
     # Setup checkpoints dir
     curr_time = datetime.datetime.now().strftime('%m-%d_%H-%M')
-    checkpoints_dir = os.path.join(CHECKPOINTS_DIR, curr_time)
+    checkpoints_dir = os.path.join(config.PROJECT_DIR, 'checkpoints', curr_time)
     os.makedirs(checkpoints_dir)
 
-    imgs_list = []
     for i in range(num_epochs):
         print(f"Epoch {i + 1} started.")
         train_one_epoch(
@@ -108,7 +107,6 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             criterion=criterion,
             device=device,
             hidden_size=hidden_size,
-            fixed_data=fixed_data,
             current_epoch=i
         )
         
@@ -117,63 +115,60 @@ def train(generator: nn.Module, discriminator: nn.Module, train_loader: DataLoad
             noise = fixed_data['noise']
             dimensions = fixed_data['dimensions']
             fake = generator(noise, dimensions).detach().cpu()
-            img_grid = vutils.make_grid(fake, padding=2, normalize=True)
-            imgs_list.append(img_grid)
-        plot_anim_fixed_noise(imgs_list, f'python/img/{i+1}.png')            
+            img_grid = vutils.make_grid(fake, padding=2, normalize=True).detach().cpu().numpy()
+            draw_img(img_grid, os.path.join(config.OUTPUT_PLOTS_DIR, f'{i+1}.png'))
 
         # Save checkpoint
-        # if i % 30 == 0:
-        if False:
+        if config.SAVE_CHECKPOINT_EVERY is not None and i % config.SAVE_CHECKPOINT_EVERY == 0:
             save_checkpoint(discriminator, generator, disc_optimizer, gen_optimizer, 
                 save_path=os.path.join(checkpoints_dir, f'ep_{i+1}.pth'))
+            config.save_confg(os.path.join(checkpoints_dir, 'params.json'))
 
 
-def main(args):
+def main():
     # Setup randomness
-    random.seed(args['seed'])
-    np.random.seed(args['seed'])
-    torch.manual_seed(args['seed'])
+    random.seed(config.SEED)
+    np.random.seed(config.SEED)
+    torch.manual_seed(config.SEED)
 
     # Setup params
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     torch.backends.cudnn.benchmark = True
-    print("Train on device:", device)
+    print("Train on device:", config.DEVICE)
 
     # Prepare dataloader
-    dataset = Sprite16x16Dataset(args['data_root'], aug_factor=1)
-    # data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
-    # data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=True)
-    data_loader = DataLoader(dataset, batch_size=args['batch_size'], shuffle=False)
+    dataset = Sprite16x16Dataset(config.DATA_ROOT, aug_factor=1, max_pad_size=config.IMAGE_SHAPE[0])
+    # -- shuffle=True/num_workers>1/pin_memory=True - casuses iterative RAM overconsumption
+    # data_loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=args['num_data_workers'], pin_memory=True)
+    data_loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=True)
 
-    # Instantiate and setup generator
-    netG = DCGAN_Generator(hidden_size=args['hidden_size'], n_feature_maps=128, output_shape=IMAGE_SHAPE)
+    # Create and setup generator
+    netG = DCGAN_Generator(hidden_size=config.HIDDEN_SIZE, n_feature_maps=128, output_shape=config.IMAGE_SHAPE)
     netG.apply(weights_init_dcgan)
 
-    # Instantiate and setup discriminator
-    netD = DCGAN_Discriminator(input_shape=IMAGE_SHAPE, n_feature_maps=128)
+    # Create and setup discriminator
+    netD = DCGAN_Discriminator(input_shape=config.IMAGE_SHAPE, n_feature_maps=128)
     netD.apply(weights_init_dcgan)
 
     # Loss
-    loss = nn.BCELoss().to(device)
+    loss = nn.BCELoss().to(config.DEVICE)
 
     # Optimizers
-    optG = optim.Adam(netG.parameters(), lr=args['generator_lr'], betas=[args['beta1'], 0.999])
-    optD = optim.Adam(netD.parameters(), lr=args['discriminator_lr'], betas=[args['beta1'], 0.999])
+    optG = optim.Adam(netG.parameters(), lr=config.GENERATOR_LR, betas=[config.BETA1, 0.999])
+    optD = optim.Adam(netD.parameters(), lr=config.DISCRIMINATOR_LR, betas=[config.BETA1, 0.999])
 
     # Start training process
     train(
         generator=netG,
         discriminator=netD,
-        num_epochs=args['num_epochs'],
+        num_epochs=config.NUM_EPOCHS,
         gen_optimizer=optG,
         disc_optimizer=optD,
         train_loader=data_loader,
         criterion=loss,
-        device=device,
-        hidden_size=args['hidden_size']
+        device=config.DEVICE,
+        hidden_size=config.HIDDEN_SIZE
     )
 
 
 if __name__ == '__main__':
-    args = json.load(open(os.path.join(PROJECT_DIR, 'params/param_set1.json'), 'rb'))
-    main(args)
+    main()

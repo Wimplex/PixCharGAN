@@ -8,20 +8,12 @@ import torch.nn.functional as F
 import torchvision.transforms.transforms as T
 from torch.utils.data import Dataset
 
-from utils import int_to_grayscale_hex
-from config import IMAGE_SHAPE
 
-
-# Maps string representation of directions into categorical one
-DIRECTIONS = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
-BACKGROUND_COLOR = 150
-
-
-def center(img_data, max_size=IMAGE_SHAPE[0]):
+def center_pad(img_data, max_size, background_color):
     """ Center small image in a square with <max_size> sides """
-    # out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * BACKGROUND_COLOR / 255
+    # out = torch.ones(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype) * background_color / 255
     out = torch.zeros(size=[img_data.shape[0], max_size, max_size], dtype=img_data.dtype)
-    # out[:3,:,:] = BACKGROUND_COLOR / 255
+    # out[:3,:,:] = background_color / 255
     x_offset = (max_size - img_data.shape[1]) // 2
     y_offset = (max_size - img_data.shape[2]) // 2
     out[:, x_offset:x_offset + img_data.shape[1], y_offset:y_offset + img_data.shape[2]] = img_data
@@ -42,16 +34,11 @@ def noise_mix(img_data, std=0.001, p=0.5):
     return img_data
 
 
-def read_image(img_path):
-    img = Image.open(img_path).convert('RGBA')
-    #new_img = Image.new('RGBA', img.size, int_to_grayscale_hex(BACKGROUND_COLOR))
-    #new_img.paste(img, (0, 0), mask=img)
-    #return new_img.convert('RGB')
-    return img
-
-
 class Sprite16x16Dataset(Dataset):
-    def __init__(self, dataset_root_dir, aug_factor=1):
+    directions_to_num = {'R': 0, 'L': 1, 'U': 2, 'D': 3}
+    background_color = 150
+
+    def __init__(self, dataset_root_dir, aug_factor=1, max_pad_size=32):
         super(Sprite16x16Dataset, self).__init__()
 
         sprites_paths_template = os.path.join(dataset_root_dir, '16x16', '*', '*.png')
@@ -64,7 +51,7 @@ class Sprite16x16Dataset(Dataset):
 
         self.forward_transformation = T.Compose([
             T.ToTensor(),
-            T.Lambda(center),
+            T.Lambda(lambda x: center_pad(x, max_size=max_pad_size, background_color=self.background_color)),
             T.Normalize((0.485, 0.456, 0.406, 0.0), (0.229, 0.224, 0.225, 1.0))
         ])
 
@@ -81,8 +68,8 @@ class Sprite16x16Dataset(Dataset):
 
     def __getitem__(self, idx):
         # Read data
-        curr_img_path = self.paths[idx]
-        img = read_image(curr_img_path)
+        img_path = self.paths[idx]
+        img = Image.open(img_path).convert('RGBA')
         
         # Apply transformations
         direction = self.sprite_directions[idx]
@@ -91,7 +78,7 @@ class Sprite16x16Dataset(Dataset):
         img = self.aug_transformation(img)
         img, flipped = horisontal_flip_with_confirmation(img, p=0.3)
         if flipped: direction = 'R' if direction == 'L' else 'L'
-        direction = DIRECTIONS[direction]
+        direction = self.directions_to_num[direction]
         direction = F.one_hot(torch.tensor(direction), num_classes=4)
 
         return img, direction, self.sprite_outlines[idx]

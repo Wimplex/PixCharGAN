@@ -22,7 +22,6 @@ def int_to_grayscale_hex(value):
     return '#%02x%02x%02x' % (value, value, value)
 
 
-
 def save_checkpoint(modelD: nn.Module, modelG: nn.Module, \
         optimD: optim.Optimizer, optimG: optim.Optimizer, \
         save_path: str):
