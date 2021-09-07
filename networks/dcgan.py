@@ -1,10 +1,8 @@
 import torch
 import torch.nn as nn
-from torch.utils.data.dataloader import T
 import torch.nn.functional as F
-from torchvision.transforms.transforms import Resize
 
-from networks.modules import Conv2dBlock, ConvTranspose2dBlock
+from networks.modules import *
 
 
 def weights_init_dcgan(m):
@@ -17,7 +15,7 @@ def weights_init_dcgan(m):
 
 
 class DCGAN_Generator(nn.Module):
-    def __init__(self, hidden_size=128, output_shape=[32, 32, 3], n_feature_maps=64, num_classes=4):
+    def __init__(self, hidden_size=128, output_shape=[32, 32, 4], n_feature_maps=64, num_classes=4):
         super(DCGAN_Generator, self).__init__()
 
         # Shape of output image
@@ -39,11 +37,11 @@ class DCGAN_Generator(nn.Module):
 
         # Main pipe layers
         self.main_pipe = nn.Sequential(
-            ConvTranspose2dBlock(hidden_size + num_classes, n_feature_maps * 8, 4, 2, dropout_p=0.3),
+            ConvTranspose2dBlock(hidden_size + num_classes, n_feature_maps * 8, 4, 2),
             ConvTranspose2dBlock(n_feature_maps * 8, n_feature_maps * 4, 4, 2),
-            ConvTranspose2dBlock(n_feature_maps * 4, n_feature_maps * 2, 4, 2, dropout_p=0.3),
+            ConvTranspose2dBlock(n_feature_maps * 4, n_feature_maps * 2, 4, 2),
             ConvTranspose2dBlock(n_feature_maps * 2, n_feature_maps, 4, 2),
-            ConvTranspose2dBlock(n_feature_maps, output_shape[2], 3, 1, activation='tanh', bn=False)
+            ConvTranspose2dBlock(n_feature_maps, output_shape[2], 4, 1, activation='tanh', bn=False)
         )
 
     def forward(self, x, condition):
@@ -64,27 +62,36 @@ class DCGAN_Generator(nn.Module):
 
 
 class DCGAN_Discriminator(nn.Module):
-    def __init__(self, input_shape=[32, 32, 3], n_feature_maps=64, num_classes=4):
+    def __init__(self, input_shape=[32, 32, 4], n_feature_maps=64, emb_size=96):
         super(DCGAN_Discriminator, self).__init__()
         self.input_shape = input_shape
 
-        self.cond_pipe = nn.Sequential(
-            nn.Embedding(num_classes, 50),
-            nn.Linear(50, input_shape[0] * input_shape[1])
-        )
-
         # Main layers
         self.main_pipe = nn.Sequential(
-            Conv2dBlock(input_shape[2] + num_classes, n_feature_maps, 4, 2, bn=False),
-            Conv2dBlock(n_feature_maps, n_feature_maps * 2, 4, 2, dropout_p=0.3),
-            Conv2dBlock(n_feature_maps * 2, n_feature_maps * 4, 4, 2),
-            Conv2dBlock(n_feature_maps * 4, n_feature_maps * 8, 4, 2, dropout_p=0.3),
-            Conv2dBlock(n_feature_maps * 8, 1, 2, 1, padding=0, activation='sigmoid', bn=False),
+           Conv2dBlock(input_shape[2], n_feature_maps, 4, 2, bn=False),
+           Conv2dBlock(n_feature_maps, n_feature_maps * 2, 4, 2),
+           Conv2dBlock(n_feature_maps * 2, n_feature_maps * 4, 4, 2),
+           Conv2dBlock(n_feature_maps * 4, n_feature_maps * 8, 4, 2),
+           Conv2dBlock(n_feature_maps * 8, 1, 2, 1, padding=0, activation='sigmoid', bn=False),
         )
 
-    def forward(self, x, condition):
-        cond_features = self.cond_pipe(condition)
-        cond_features = torch.reshape(cond_features, [x.shape[0], cond_features.shape[1], x.shape[2], x.shape[3]])
-        x = F.leaky_relu(torch.cat((x, cond_features), 1), 0.2, True)
+        #self.main_pipe_with_intermediate_feature_layer = nn.Sequential(
+        #    Conv2dBlock(input_shape[2], n_feature_maps, 4, 2, bn=False),
+        #    Conv2dBlock(n_feature_maps, n_feature_maps * 2, 4, 2),
+        #    Conv2dBlock(n_feature_maps * 2, n_feature_maps * 4, 4, 2),
+        #    Conv2dBlock(n_feature_maps * 4, n_feature_maps * 8, 4, 2),
+        #    Reshape([2 * 2 * n_feature_maps * 8]),
+        #    nn.Linear(2 * 2 * n_feature_maps * 8, emb_size)
+        #)
+        #self.end_of_pipe = nn.Sequential(
+        #    nn.Linear(emb_size, 1),
+        #    nn.Sigmoid()
+        #)
+
+    def forward(self, x):
         out = self.main_pipe(x)
         return out
+
+        # feats = self.main_pipe_with_intermediate_feature_layer(x)
+        # out = self.end_of_pipe(feats)
+        # return out

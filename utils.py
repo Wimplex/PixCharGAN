@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import numpy as np
+import matplotlib.pyplot as plt
 # from google.colab import files
 
 
@@ -32,3 +34,11 @@ def save_checkpoint(modelD: nn.Module, modelG: nn.Module, \
         'generator_optim': optimG.state_dict()
     }
     torch.save(state_dict, save_path)
+
+
+def draw_img(img_grid, save_path):
+    fig = plt.figure(figsize=(8, 8))
+    plt.axis('off')
+    plt.imshow(np.transpose(img_grid, [1, 2, 0]))
+    plt.savefig(save_path)
+    plt.close()

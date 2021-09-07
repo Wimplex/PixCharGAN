@@ -8,7 +8,7 @@ class Config:
     FAKE_LABEL = 0
 
     # Common
-    SEED = 24
+    SEED = 451
     DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     # NUM_GPUS = 1
 
@@ -19,17 +19,17 @@ class Config:
 
     # Data
     IMAGE_SHAPE = [32, 32, 4]
-    BATCH_SIZE = 96
+    BATCH_SIZE = 128
 
     # Training process
     NUM_EPOCHS = 500
     HIDDEN_SIZE = 64
-    GENERATOR_LR = 6e-3
+    GENERATOR_LR = 2e-3
     DISCRIMINATOR_LR = 1e-4
-    BETA1 = 0.5
+    BETA1 = 0.4
     SAVE_CHECKPOINT_EVERY = 30 # <-- could be None if it is not needed to save checkpoints
 
-    def save_confg(self, save_path: str):
+    def save_config(self, save_path: str):
         json.dump(self.__dict__, open(save_path, 'w'), indent='\t')
     
     def load_config(self, saved_config_path: str):
