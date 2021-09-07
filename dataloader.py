@@ -57,7 +57,7 @@ class Sprite16x16Dataset(Dataset):
 
         self.aug_transformation = T.Compose([
             T.ColorJitter(),
-            T.Lambda(lambda x: noise_mix(x, p=0.1)),
+            # T.Lambda(lambda x: noise_mix(x, p=0.1)),
         ])
 
     def __prepare_meta_features(self):

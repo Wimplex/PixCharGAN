@@ -23,10 +23,11 @@ class PrintOutputShape(nn.Module):
 
 class Conv2dBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel, stride, padding=1, bias=False, \
-        activation='lrelu', bn=True):
+        activation='lrelu', bn=True, dropout_p=None):
         super(Conv2dBlock, self).__init__()
         self.blocks = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel, stride=stride, padding=padding, bias=bias),
+            nn.Dropout2d(dropout_p) if dropout_p is not None else nn.Identity(),
             nn.BatchNorm2d(out_channels) if bn else nn.Identity(),
             activations[activation]
         )
@@ -37,10 +38,11 @@ class Conv2dBlock(nn.Module):
 
 class ConvTranspose2dBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel, stride, padding=1, bias=False, \
-        activation='lrelu', bn=True):
+        activation='lrelu', bn=True, dropout_p=None):
         super(ConvTranspose2dBlock, self).__init__()
         self.blocks = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel, stride=stride, padding=padding, bias=bias),
+            nn.Dropout2d(dropout_p) if dropout_p is not None else nn.Identity(),
             nn.BatchNorm2d(out_channels) if bn else nn.Identity(),
             activations[activation]
         )

@@ -30,7 +30,7 @@ class Config:
     SAVE_CHECKPOINT_EVERY = 30 # <-- could be None if it is not needed to save checkpoints
 
     def save_confg(self, save_path: str):
-        json.dump(self.__dict__(), open(save_path, 'w'), indent='\t')
+        json.dump(self.__dict__, open(save_path, 'w'), indent='\t')
     
     def load_config(self, saved_config_path: str):
         params = json.load(open(saved_config_path, 'r'))
